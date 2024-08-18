@@ -1,29 +1,42 @@
 import fetch from 'node-fetch';
-import ytdl from 'ytdl-core';
-import { formatDistanceToNow } from 'date-fns';
-
-// Utility function to get the time difference in a human-readable format
-const getTimeDifference = (publishDate) => {
-  const now = new Date();
-  const publishDateTime = new Date(publishDate);
-  return formatDistanceToNow(publishDateTime, { addSuffix: true });
-};
 
 export default async function youtube(url, isAudioOnly = false) {
   try {
+    // Part 1: Scrape video metadata using x2download.app
+    const scrapeMetadata = async (videoUrl) => {
+      const BASE_URL = 'https://x2download.app';
+      const API_URL = 'https://x2download.app/api/ajaxSearch/';
+
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          origin: BASE_URL,
+          referer: BASE_URL,
+          'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+          'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        },
+        body: new URLSearchParams({
+          'q': videoUrl,
+          'vt': 'mp4'
+        })
+      });
+
+      const text = await response.text();
+      const jsonResponse = JSON.parse(text);
+
+      if (jsonResponse && jsonResponse.links && jsonResponse.links.mp4) {
+        const title = jsonResponse.title;
+        return { title };
+      } else {
+        throw new Error('Failed to scrape video metadata.');
+      }
+    };
+
+    const metadata = await scrapeMetadata(url);
+
+    // Part 2: Fetch download links using cobalt.tools
     const BASE_URL = 'https://cobalt.tools';
     const BASE_API = 'https://api.cobalt.tools/api';
-
-    // Get video info using ytdl-core
-    const videoInfo = await ytdl.getInfo(url);
-    const { title, author, lengthSeconds, viewCount, publishDate, formats } = videoInfo.videoDetails;
-
-    // Determine the size of the video or audio
-    const format = ytdl.chooseFormat(formats, { quality: isAudioOnly ? 'highestaudio' : 'highestvideo' });
-    const size = format.contentLength ? format.contentLength / (1024 * 1024) : 'Unknown';
-
-    // Calculate the time difference since the video was published
-    const timeSincePublished = getTimeDifference(publishDate);
 
     // Send a preflight request to handle CORS
     await fetch(BASE_API + '/json', {
@@ -59,15 +72,9 @@ export default async function youtube(url, isAudioOnly = false) {
     const stream = await fetch(res.url);
 
     return {
+      title: metadata.title, // Include the title in the response
       status: stream.status,
       url: stream.url,
-      title: title,
-      author: author.name,
-      views: viewCount,
-      lengthSeconds: lengthSeconds,
-      size: size === 'Unknown' ? size : `${size.toFixed(2)} MB`,
-      publishDate: publishDate,
-      timeSincePublished: timeSincePublished,
     };
   } catch (e) {
     throw e;
