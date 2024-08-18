@@ -1,24 +1,21 @@
 import fetch from 'node-fetch';
 
-export default async function youtube(url, quality, isAudioOnly = false) {
+export default async function youtube(url, quality = 'default', isAudioOnly = false) {
   try {
-    // Part 1: Scrape video metadata using x2download.app
+    // Scrape video metadata using x2download.app
     const scrapeMetadata = async (videoUrl) => {
       const BASE_URL = 'https://x2download.app';
-      const API_URL = 'https://x2download.app/api/ajaxSearch/';
+      const API_URL = `${BASE_URL}/api/ajaxSearch/`;
 
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
           origin: BASE_URL,
           referer: BASE_URL,
-          'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+          'user-agent': 'Mozilla/5.0',
           'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
         },
-        body: new URLSearchParams({
-          'q': videoUrl,
-          'vt': 'mp4'
-        })
+        body: new URLSearchParams({ 'q': videoUrl, 'vt': 'mp4' }),
       });
 
       const text = await response.text();
@@ -34,9 +31,9 @@ export default async function youtube(url, quality, isAudioOnly = false) {
 
     const metadata = await scrapeMetadata(url);
 
-    // Part 2: Fetch download links using cobalt.tools
+    // Fetch download links using cobalt.tools
     const BASE_URL = 'https://cobalt.tools';
-    const BASE_API = 'https://api.cobalt.tools/api';
+    const BASE_API = `https://api.cobalt.tools/api`;
 
     // Send a preflight request to handle CORS
     await fetch(BASE_API + '/json', {
@@ -44,7 +41,7 @@ export default async function youtube(url, quality, isAudioOnly = false) {
       headers: {
         'access-control-request-method': 'POST',
         'access-control-request-headers': 'content-type',
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+        'user-agent': 'Mozilla/5.0',
         origin: BASE_URL,
         referer: BASE_URL,
       },
@@ -56,7 +53,7 @@ export default async function youtube(url, quality, isAudioOnly = false) {
       headers: {
         origin: BASE_URL,
         referer: BASE_URL,
-        'user-agent': BASE_URL,
+        'user-agent': 'Mozilla/5.0',
         'content-type': 'application/json',
         accept: 'application/json',
       },
@@ -69,16 +66,20 @@ export default async function youtube(url, quality, isAudioOnly = false) {
       }),
     }).then((v) => v.json());
 
-    // Get the stream from the API response
+    if (!res || !res.url) {
+      throw new Error('Failed to get the download link from the API.');
+    }
+
     const stream = await fetch(res.url);
 
     return {
-      title: metadata.title, // Include the title in the response
+      title: metadata.title,
       status: stream.status,
-      quality: stream.vQuality,
-      url: stream.url,
+      quality: quality, // Echo the requested quality
+      url: res.url, // Use the URL from the API response
     };
   } catch (e) {
+    console.error('Error in youtube function:', e.message);
     throw e;
   }
 }
