@@ -3,7 +3,7 @@ import youtube from './endpoint.js';
 
 const app = express();
 
-app.get('/youtube/quality', async (req, res) => {
+app.get('/youtube/video', async (req, res) => {
   const { url, quality } = req.query;
   
   if (!url || !quality) {
