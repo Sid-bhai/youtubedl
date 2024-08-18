@@ -1,6 +1,6 @@
 import fetch from 'node-fetch';
 
-export default async function youtube(url, isAudioOnly = false) {
+export default async function youtube(url, quality, isAudioOnly = false) {
   try {
     // Part 1: Scrape video metadata using x2download.app
     const scrapeMetadata = async (videoUrl) => {
@@ -62,6 +62,7 @@ export default async function youtube(url, isAudioOnly = false) {
       },
       body: JSON.stringify({
         url: url,
+        vQuality: quality,
         filenamePattern: 'basic',
         isAudioOnly: isAudioOnly,
         disableMetaData: true,
@@ -74,6 +75,7 @@ export default async function youtube(url, isAudioOnly = false) {
     return {
       title: metadata.title, // Include the title in the response
       status: stream.status,
+      quality: stream.vQuality,
       url: stream.url,
     };
   } catch (e) {
